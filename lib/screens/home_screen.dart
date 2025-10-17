@@ -1,13 +1,13 @@
-import 'package:chat_app/components/screens/chats_screen.dart';
-import 'package:chat_app/components/screens/groups_screen.dart';
-import 'package:chat_app/components/screens/more_screen.dart';
-import 'package:chat_app/components/screens/profile_screen.dart';
+import 'package:chat_app/screens/chats/chats_screen.dart';
+import 'package:chat_app/screens/groups/groups_screen.dart';
+import 'package:chat_app/screens/more/more_screen.dart';
+import 'package:chat_app/screens/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 
-import '../main_tab_bar.dart';
+import '../components/main_tab_bar.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

@@ -1,5 +1,5 @@
-import 'package:chat_app/components/onboarding_page.dart';
-import 'package:chat_app/components/screens/home_screen.dart';
+import 'package:chat_app/onboarding_page.dart';
+import 'package:chat_app/screens/login_screen.dart';
 import 'package:chat_app/configs/image.config.dart';
 import 'package:flutter/material.dart';
 
@@ -44,17 +44,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.ease,
       );
     } else {
-      _navigateToHome();
+      _navigateToLogin();
     }
   }
 
   void _onSkip() {
-    _navigateToHome();
+    _navigateToLogin();
   }
 
-  void _navigateToHome() {
+  void _navigateToLogin() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 

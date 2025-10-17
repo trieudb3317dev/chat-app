@@ -1,15 +1,7 @@
-import 'package:chat_app/components/screens/LoginScreen.dart';
-import 'package:chat_app/components/screens/SplashScreen.dart';
-import 'package:chat_app/components/screens/home_screen.dart';
-import 'package:chat_app/components/screens/onboarding_screen.dart';
+import 'package:chat_app/screens/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'package:chat_app/providers/theme_provider.dart';
-import 'package:chat_app/components/common/IconTab.dart';
-import 'package:chat_app/configs/icon.config.dart';
-import 'package:chat_app/configs/color.config.dart';
-import 'package:chat_app/configs/image.config.dart';
 
 void main() async {
   runApp(MyApp());

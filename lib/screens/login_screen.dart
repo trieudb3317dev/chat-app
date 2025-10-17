@@ -1,6 +1,7 @@
-import 'package:chat_app/components/common/phone_number_input.dart';
-import 'package:chat_app/components/common/verification_code_input.dart';
-import 'package:chat_app/components/screens/home_screen.dart';
+import 'package:chat_app/common/phone_number_input.dart';
+import 'package:chat_app/common/verification_code_input.dart';
+import 'package:chat_app/screens/home_screen.dart';
+import 'package:chat_app/screens/register_screen.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -49,7 +50,10 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              // TODO: Navigate to Register Screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RegisterScreen()),
+              );
             },
             child: const Text('Register', style: TextStyle(color: Colors.white)),
           ),
