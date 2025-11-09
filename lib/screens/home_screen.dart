@@ -4,7 +4,7 @@ import 'package:chat_app/screens/more/more_screen.dart';
 import 'package:chat_app/screens/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 
-import '../components/main_tab_bar.dart';
+import '../main_tab_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

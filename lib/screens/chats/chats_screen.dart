@@ -1,8 +1,10 @@
 import 'package:chat_app/common/conversation_list_item.dart';
+import 'package:chat_app/providers/friend_provider.dart';
 import 'package:chat_app/screens/chats/add_friend_screen.dart';
 import 'package:chat_app/screens/chats/conversation_screen.dart';
 import 'package:chat_app/screens/chats/create_group_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({Key? key}) : super(key: key);
@@ -15,72 +17,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
 
-  final List<Map<String, dynamic>> _chatData = [
-    {
-      "name": "David Wayne",
-      "lastMessage": "Thanks a bunch! Have a great day! 😊",
-      "time": "10:25",
-      "unreadCount": 5,
-      "avatar": "https://i.pravatar.cc/150?u=davidwayne",
-      "phone": "(+44) 50 9285 3022"
-    },
-    {
-      "name": "Edward Davidson",
-      "lastMessage": "Great, thanks so much! 🙏",
-      "time": "22:20 09/05",
-      "unreadCount": 12,
-      "avatar": "https://i.pravatar.cc/150?u=edwarddavidson",
-      "phone": "(+44) 50 9285 2091"
-    },
-    {
-      "name": "Angela Kelly",
-      "lastMessage": "Appreciate it! See you soon! 🚀",
-      "time": "10:45 08/05",
-      "unreadCount": 1,
-      "avatar": "https://i.pravatar.cc/150?u=angelakelly",
-      "phone": "(+44) 50 9285 2092"
-    },
-    {
-      "name": "Jean Dare",
-      "lastMessage": "Hooray! 🎉",
-      "time": "20:10 05/05",
-      "unreadCount": 0,
-      "avatar": "https://i.pravatar.cc/150?u=jeandare",
-      "phone": "(+44) 50 9285 2093"
-    },
-    {
-      "name": "Dennis Borer",
-      "lastMessage": "Your order has been successfully delivered",
-      "time": "17:02 05/05",
-      "unreadCount": 0,
-      "avatar": "https://i.pravatar.cc/150?u=dennisborer",
-      "phone": "(+44) 50 9285 2094"
-    },
-    {
-      "name": "Cayla Rath",
-      "lastMessage": "See you soon!",
-      "time": "11:20 05/05",
-      "unreadCount": 0,
-      "avatar": "https://i.pravatar.cc/150?u=caylarath",
-      "phone": "(+44) 50 9285 2095"
-    },
-    {
-      "name": "Erin Turcotte",
-      "lastMessage": "I'm ready to drop off your delivery. 👍",
-      "time": "19:35 02/05",
-      "unreadCount": 0,
-      "avatar": "https://i.pravatar.cc/150?u=erinturcotte",
-      "phone": "(+44) 50 9285 2096"
-    },
-    {
-      "name": "Rodolfo Walter",
-      "lastMessage": "Appreciate it! Hope you enjoy it!",
-      "time": "07:55 01/05",
-      "unreadCount": 0,
-      "avatar": "https://i.pravatar.cc/150?u=rodolfowalter",
-      "phone": "(+44) 50 9285 2097"
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<FriendProvider>(context, listen: false).fetchFriends();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +59,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text(
-          'E-Chat',
+          'T-Chats',
           style: TextStyle(
             color: Colors.white,
             fontSize: 24,
@@ -218,28 +161,61 @@ class _ChatsScreenState extends State<ChatsScreen> {
           ),
         ),
         child: ClipRRect(
-            borderRadius: const BorderRadius.only(
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(30),
             topRight: Radius.circular(30),
           ),
-          child: ListView.builder(
-            padding: const EdgeInsets.only(top: 10),
-            itemCount: _chatData.length,
-            itemBuilder: (context, index) {
-              final chat = _chatData[index];
-              return ConversationListItem(
-                name: chat['name'],
-                lastMessage: chat['lastMessage'],
-                time: chat['time'],
-                unreadCount: chat['unreadCount'],
-                avatar: CircleAvatar(
-                  backgroundImage: NetworkImage(chat['avatar']),
+          child: Consumer<FriendProvider>(
+            builder: (context, friendProvider, child) {
+              if (friendProvider.isLoading && friendProvider.friends.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (friendProvider.error != null) {
+                return Center(child: Text(friendProvider.error!));
+              }
+
+              if (friendProvider.friends.isEmpty) {
+                return const Center(child: Text('No friends yet. Add one!'));
+              }
+
+              return RefreshIndicator(
+                onRefresh: () => friendProvider.fetchFriends(),
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(top: 10),
+                  itemCount: friendProvider.friends.length,
+                  itemBuilder: (context, index) {
+                    final friendship = friendProvider.friends[index];
+                    final friend = friendship['friend'] ?? {};
+                    
+                    // Prepare data for ConversationListItem, now including the friend's ID
+                    final chat = {
+                      'id': friend['id'], // ** IMPORTANT: Pass the friend's ID **
+                      'name': friend['name'] ?? 'Unknown',
+                      'lastMessage': friendship['lastMessage'] ?? 'No messages yet', // Hardcoded
+                      'time': friendship['time'] ?? 'Now', // Hardcoded
+                      'unreadCount': 0, // Hardcoded
+                      'avatar': friend['avatar'] ?? 'https://via.placeholder.com/150',
+                      'phone': friend['phone'] ?? 'N/A',
+                    };
+
+                    return ConversationListItem(
+                      id: chat['id'],
+                      name: chat['name'],
+                      lastMessage: chat['lastMessage'],
+                      time: chat['time'],
+                      unreadCount: chat['unreadCount'],
+                      avatar: CircleAvatar(
+                        backgroundImage: NetworkImage(chat['avatar']),
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => ConversationScreen(user: chat),
+                        ));
+                      },
+                    );
+                  },
                 ),
-                onTap: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => ConversationScreen(user: chat),
-                  ));
-                },
               );
             },
           ),

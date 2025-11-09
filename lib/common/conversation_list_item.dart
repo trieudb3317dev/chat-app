@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chat_app/configs/color.config.dart';
 
 class ConversationListItem extends StatelessWidget {
+  final int id;
   final String name;
   final String lastMessage;
   final String time;
@@ -12,6 +13,7 @@ class ConversationListItem extends StatelessWidget {
 
   const ConversationListItem({
     Key? key,
+    required this.id,
     required this.name,
     required this.lastMessage,
     required this.time,

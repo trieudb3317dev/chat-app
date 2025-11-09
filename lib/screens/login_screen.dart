@@ -1,7 +1,8 @@
 import 'package:chat_app/common/phone_number_input.dart';
-import 'package:chat_app/common/verification_code_input.dart';
 import 'package:chat_app/screens/home_screen.dart';
 import 'package:chat_app/screens/register_screen.dart';
+import 'package:chat_app/screens/verify_otp_screen.dart';
+import 'package:chat_app/services/auth_service.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -12,25 +13,39 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _showOtpInput = false;
-  bool _rememberMe = false;
+  final AuthService _authService = AuthService();
   final _phoneController = TextEditingController();
+  bool _rememberMe = false;
 
-  void _submitPhoneNumber() {
-    if (_phoneController.text.isNotEmpty) {
-      setState(() {
-        _showOtpInput = true;
-      });
+  void _submitPhoneNumber() async {
+    if (_phoneController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a phone number')),
+      );
+      return;
     }
-  }
 
-  void _verifyOtp(String otp) {
-    // Here you would typically verify the OTP with your backend
-    print("Entered OTP: $otp");
-    // If successful, navigate to home
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+    try {
+      final otpPayload = await _authService.sendOtp(_phoneController.text);
+      if (mounted && otpPayload != null) {
+        // We pass the payload and specify the action is to log in
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerifyOtpScreen(
+              otpPayload: otpPayload,
+              authAction: AuthAction.login, // Specify login action
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 
   @override
@@ -62,21 +77,13 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 8.0),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 8.0),
             child: Text(
-              _showOtpInput ? 'Enter OTP Code' : 'Enter your mobile phone',
-              style: const TextStyle(color: Colors.white, fontSize: 24),
+              'Enter your mobile phone',
+              style: TextStyle(color: Colors.white, fontSize: 24),
             ),
           ),
-           if (_showOtpInput)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 24.0),
-              child: Text(
-                'Sent to: (+44) ${_phoneController.text}',
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-            ),
           Expanded(
             child: Container(
               decoration: const BoxDecoration(
@@ -88,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(32.0),
-                child: _showOtpInput ? _buildOtpInput() : _buildPhoneInput(),
+                child: _buildPhoneInput(),
               ),
             ),
           ),
@@ -128,40 +135,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             FloatingActionButton(
               onPressed: _submitPhoneNumber,
-              child: const Icon(Icons.arrow_forward),
-            )
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOtpInput() {
-    return Column(
-      children: [
-        const SizedBox(height: 32),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.timer_outlined, size: 16, color: Colors.grey),
-            SizedBox(width: 4),
-            Text('00:46'), // This should be a stateful timer
-            SizedBox(width: 16),
-            Text('Resend Code', style: TextStyle(color: Colors.blue)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        VerificationCodeInput(
-          onCompleted: _verifyOtp,
-        ),
-        const SizedBox(height: 32),
-         Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FloatingActionButton(
-              onPressed: () {
-                // This is handled by onCompleted in VerificationCodeInput
-              },
               child: const Icon(Icons.arrow_forward),
             )
           ],

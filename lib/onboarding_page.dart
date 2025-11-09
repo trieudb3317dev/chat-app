@@ -1,6 +1,7 @@
-import 'package:chat_app/components/common/app_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+import 'common/app_button.dart';
 
 class OnboardingPage extends StatelessWidget {
   final String imagePath;

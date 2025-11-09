@@ -1,30 +1,71 @@
+import 'package:chat_app/providers/conversation_provider.dart';
 import 'package:chat_app/screens/chats/user_information_screen.dart';
 import 'package:chat_app/screens/chats/video_call_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class ConversationScreen extends StatefulWidget {
+class ConversationScreen extends StatelessWidget {
   final Map<String, dynamic> user;
 
   const ConversationScreen({Key? key, required this.user}) : super(key: key);
 
   @override
-  _ConversationScreenState createState() => _ConversationScreenState();
+  Widget build(BuildContext context) {
+    final userId = user['id'] as int? ?? 0;
+
+    return ChangeNotifierProvider(
+      create: (_) => ConversationProvider()..fetchMessages(userId),
+      child: _ConversationView(user: user, userId: userId),
+    );
+  }
 }
 
-class _ConversationScreenState extends State<ConversationScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  // Dummy messages
-  final List<Map<String, dynamic>> _messages = [
-    {'text': 'Speedy Chow. I\'m just around the corner from your place. 😎', 'isMe': false, 'time': '10:10'},
-    {'text': 'Hi!', 'isMe': true, 'time': '10:10'},
-    {'text': 'Awesome, thanks for letting me know! Can\'t wait for my delivery. 🚚', 'isMe': true, 'time': '10:11'},
-    {'text': 'No problem at all!\nI\'ll be there in about 15 minutes.', 'isMe': false, 'time': '10:11'},
-    {'text': 'I\'ll text you when I arrive.', 'isMe': false, 'time': '10:11'},
-    {'text': 'Great! 👍', 'isMe': true, 'time': '10:12'},
-  ];
+class _ConversationView extends StatefulWidget {
+  final Map<String, dynamic> user;
+  final int userId;
 
+  const _ConversationView({required this.user, required this.userId});
+
+  @override
+  __ConversationViewState createState() => __ConversationViewState();
+}
+
+class __ConversationViewState extends State<_ConversationView> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final provider = Provider.of<ConversationProvider>(context, listen: false);
+    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent &&
+        provider.hasMore &&
+        !provider.isLoading) {
+      provider.fetchMessages(widget.userId);
+    }
+  }
+
+  void _sendMessage() {
+    if (_messageController.text.trim().isEmpty) return;
+    final provider = Provider.of<ConversationProvider>(context, listen: false);
+    provider.sendMessage(widget.userId, _messageController.text.trim());
+    _messageController.clear();
+  }
+  
   void _showAttachmentMenu() {
-    showModalBottomSheet(
+     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
@@ -55,7 +96,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   void _showMoreOptions() {
-    showMenu(
+     showMenu(
       context: context,
       position: const RelativeRect.fromLTRB(100, 100, 0, 0),
       items: [
@@ -83,7 +124,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
-  Widget _buildAttachmentOption(IconData icon, String label) {
+    Widget _buildAttachmentOption(IconData icon, String label) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -142,35 +183,56 @@ class _ConversationScreenState extends State<ConversationScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return Align(
-                  alignment: message['isMe'] ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: message['isMe'] ? Colors.blue : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          message['text'],
-                          style: TextStyle(color: message['isMe'] ? Colors.white : Colors.black),
+            child: Consumer<ConversationProvider>(
+              builder: (context, provider, child) {
+                if (provider.isLoading && provider.messages.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (provider.error != null && provider.messages.isEmpty) {
+                  return Center(child: Text(provider.error!));
+                }
+
+                if (provider.messages.isEmpty && !provider.isLoading) {
+                  return const Center(child: Text('No messages'));
+                }
+                
+                return ListView.builder(
+                  controller: _scrollController,
+                  reverse: true, // Show latest messages at the bottom
+                  padding: const EdgeInsets.all(16),
+                  itemCount: provider.messages.length + (provider.hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == provider.messages.length && provider.hasMore) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final message = provider.messages[index];
+                    final isMe = message['isMe'] as bool? ?? false;
+                    return Align(
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isMe ? Colors.blue : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          message['time'],
-                          style: TextStyle(color: message['isMe'] ? Colors.white70 : Colors.black54, fontSize: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              message['text'] ?? '',
+                              style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              message['created_at']?['time'] ?? '',
+                              style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 10),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -201,9 +263,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.send, color: Colors.blue),
-                  onPressed: () {
-                    // Send message logic
-                  },
+                  onPressed: _sendMessage,
                 ),
               ],
             ),
