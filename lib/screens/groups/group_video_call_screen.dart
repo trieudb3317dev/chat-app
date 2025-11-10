@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class GroupVideoCallScreen extends StatelessWidget {
@@ -8,8 +7,15 @@ class GroupVideoCallScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dummy list of participants
-    final List<String> participants = List.generate(group['members'], (index) => 'https://i.pravatar.cc/150?u=user${index}');
+    // ** THE FIX IS HERE **
+    // 1. Safely get the list of members.
+    final List<dynamic> members = group['members'] ?? [];
+    // 2. Map the members list to a list of avatar URLs.
+    final List<String> participants = members.map((member) {
+      final user = member['user'] ?? {};
+      // Use the real avatar if available, otherwise a placeholder
+      return user['avatar'] as String? ?? 'https://i.pravatar.cc/150?u=user${user['id'] ?? 'unknown'}';
+    }).toList();
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -23,7 +29,8 @@ class GroupVideoCallScreen extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
-              title: Text('Calling ${group['name']}...', style: const TextStyle(color: Colors.white)),
+              // Also handle null group name safely
+              title: Text('Calling ${group['name'] ?? 'Group'}...', style: const TextStyle(color: Colors.white)),
             ),
             Expanded(
               child: GridView.builder(

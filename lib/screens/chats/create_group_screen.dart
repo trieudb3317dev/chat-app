@@ -1,4 +1,7 @@
+import 'package:chat_app/providers/friend_provider.dart';
+import 'package:chat_app/providers/group_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({Key? key}) : super(key: key);
@@ -9,21 +12,12 @@ class CreateGroupScreen extends StatefulWidget {
 
 class _CreateGroupScreenState extends State<CreateGroupScreen> {
   final TextEditingController _groupNameController = TextEditingController();
-  List<Map<String, String>> _selectedMembers = [];
-
-  // Dummy list of users to select from
-  final List<Map<String, String>> _users = [
-    {"name": "David Wayne", "id": "1", "phone": "(+44) 50 9285 3022", "avatar": "https://i.pravatar.cc/150?u=davidwayne"},
-    {"name": "Edward Mint", "id": "2", "phone": "(+44) 50 9285 2090", "avatar": "https://i.pravatar.cc/150?u=edwardmint"},
-    {"name": "May HG. Kang", "id": "3", "phone": "(+44) 50 9285 2214", "avatar": "https://i.pravatar.cc/150?u=maykang"},
-    {"name": "Lily Dare", "id": "4", "phone": "(+44) 50 9285 5530", "avatar": "https://i.pravatar.cc/150?u=lilydare"},
-    {"name": "Dennis Dang", "id": "5", "phone": "(+44) 50 9285 2225", "avatar": "https://i.pravatar.cc/150?u=dennisdang"},
-  ];
+  List<Map<String, dynamic>> _selectedMembers = [];
 
   void _showAddMembersPage() async {
-    final selected = await Navigator.of(context).push<List<Map<String, String>>>(
+    final selected = await Navigator.of(context).push<List<Map<String, dynamic>>>(
       MaterialPageRoute(
-        builder: (context) => AddMembersScreen(users: _users, selectedMembers: _selectedMembers),
+        builder: (context) => AddMembersScreen(selectedMembers: _selectedMembers),
       ),
     );
 
@@ -31,6 +25,29 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       setState(() {
         _selectedMembers = selected;
       });
+    }
+  }
+
+  Future<void> _createGroup() async {
+    if (_groupNameController.text.isEmpty || _selectedMembers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a group name and select at least one member.')),
+      );
+      return;
+    }
+
+    final groupProvider = Provider.of<GroupProvider>(context, listen: false);
+    final List<int> memberIds = _selectedMembers.map((member) => member['id'] as int).toList();
+
+    final success = await groupProvider.createGroup(_groupNameController.text, memberIds);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(success ? 'Group created successfully!' : groupProvider.error ?? 'Failed to create group.')),
+      );
+      if (success) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -108,10 +125,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                         final user = _selectedMembers[index];
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundImage: NetworkImage(user['avatar']!),
+                            backgroundImage: NetworkImage(user['avatar'] ?? 'https://via.placeholder.com/150'),
                           ),
-                          title: Text(user['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(user['phone']!),
+                          title: Text(user['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(user['phone'] ?? ''),
                           trailing: IconButton(
                             icon: const Icon(Icons.close, color: Colors.red),
                             onPressed: () {
@@ -133,9 +150,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // Create group logic
-                },
+                onPressed: _createGroup, // Call the create group function
                 style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -153,12 +168,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 }
 
 class AddMembersScreen extends StatefulWidget {
-  final List<Map<String, String>> users;
-  final List<Map<String, String>> selectedMembers;
+  final List<Map<String, dynamic>> selectedMembers;
 
   const AddMembersScreen({
     Key? key,
-    required this.users,
     required this.selectedMembers,
   }) : super(key: key);
 
@@ -167,25 +180,29 @@ class AddMembersScreen extends StatefulWidget {
 }
 
 class _AddMembersScreenState extends State<AddMembersScreen> {
-  late List<Map<String, String>> _tempSelectedMembers;
-  List<Map<String, String>> _filteredUsers = [];
+  late List<Map<String, dynamic>> _tempSelectedMembers;
+  List<Map<String, dynamic>> _filteredFriends = [];
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _tempSelectedMembers = List.from(widget.selectedMembers);
-    _filteredUsers = widget.users;
-    _searchController.addListener(() {
-      filterUsers();
-    });
+    
+    // Use the FriendProvider to get the list of friends
+    final friends = Provider.of<FriendProvider>(context, listen: false).friends;
+    _filteredFriends = friends.map((friendship) => friendship['friend'] as Map<String, dynamic>).toList();
+
+    _searchController.addListener(filterFriends);
   }
-  
-  void filterUsers() {
+
+  void filterFriends() {
+    final friends = Provider.of<FriendProvider>(context, listen: false).friends.map((friendship) => friendship['friend'] as Map<String, dynamic>).toList();
     String query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredUsers = widget.users.where((user) {
-        return user['name']!.toLowerCase().contains(query);
+      _filteredFriends = friends.where((user) {
+        final name = user['name'] as String? ?? '';
+        return name.toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -204,12 +221,12 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
       ),
       body: Column(
         children: [
-           Padding(
+          Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search...',
+                hintText: 'Search friends...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -222,14 +239,14 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
           ),
           Expanded(
             child: ListView.builder(
-              itemCount: _filteredUsers.length,
+              itemCount: _filteredFriends.length,
               itemBuilder: (context, index) {
-                final user = _filteredUsers[index];
+                final user = _filteredFriends[index];
                 final isSelected = _tempSelectedMembers.any((element) => element['id'] == user['id']);
 
                 return CheckboxListTile(
-                  title: Text(user['name']!),
-                  subtitle: Text(user['phone']!),
+                  title: Text(user['name'] ?? 'Unknown'),
+                  subtitle: Text(user['phone'] ?? ''),
                   value: isSelected,
                   onChanged: (bool? value) {
                     setState(() {
@@ -241,13 +258,13 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                     });
                   },
                   secondary: CircleAvatar(
-                    backgroundImage: NetworkImage(user['avatar']!),
+                    backgroundImage: NetworkImage(user['avatar'] ?? 'https://via.placeholder.com/150'),
                   ),
                 );
               },
             ),
           ),
-           Padding(
+          Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
@@ -255,7 +272,7 @@ class _AddMembersScreenState extends State<AddMembersScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Cancel'),
-                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
                   ),
                 ),
                 const SizedBox(width: 16),

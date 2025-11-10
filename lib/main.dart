@@ -1,4 +1,5 @@
 import 'package:chat_app/providers/friend_provider.dart';
+import 'package:chat_app/providers/group_provider.dart';
 import 'package:chat_app/providers/profile_provider.dart';
 import 'package:chat_app/screens/onboarding_screen.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +19,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (ctx) => ThemeProvider()),
         ChangeNotifierProvider(create: (ctx) => ProfileProvider()),
-        ChangeNotifierProvider(create: (ctx) => FriendProvider()), // Add FriendProvider
+        ChangeNotifierProvider(create: (ctx) => FriendProvider()),
+        ChangeNotifierProvider(create: (ctx) => GroupProvider()), // Add GroupProvider
       ],
       child: Consumer<ThemeProvider>(
         builder: (ctx, themeObject, _) => MaterialApp(

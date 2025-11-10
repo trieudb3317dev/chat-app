@@ -1,37 +1,83 @@
-
+import 'package:chat_app/providers/group_conversation_provider.dart';
 import 'package:chat_app/screens/groups/group_information_screen.dart';
 import 'package:chat_app/screens/groups/group_video_call_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class GroupConversationScreen extends StatefulWidget {
+class GroupConversationScreen extends StatelessWidget {
   final Map<String, dynamic> group;
 
   const GroupConversationScreen({Key? key, required this.group}) : super(key: key);
 
   @override
-  _GroupConversationScreenState createState() => _GroupConversationScreenState();
+  Widget build(BuildContext context) {
+    final groupId = group['id'] as int? ?? 0;
+
+    return ChangeNotifierProvider(
+      create: (_) => GroupConversationProvider()..fetchMessages(groupId, isRefresh: true),
+      child: _GroupConversationView(group: group, groupId: groupId),
+    );
+  }
 }
 
-class _GroupConversationScreenState extends State<GroupConversationScreen> {
+class _GroupConversationView extends StatefulWidget {
+  final Map<String, dynamic> group;
+  final int groupId;
+
+  const _GroupConversationView({required this.group, required this.groupId});
+
+  @override
+  __GroupConversationViewState createState() => __GroupConversationViewState();
+}
+
+class __GroupConversationViewState extends State<_GroupConversationView> {
   final TextEditingController _messageController = TextEditingController();
-  // Dummy messages for a group
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'text': 'Does this update fix the error 202 for the Engineer division?',
-      'sender': 'Casey',
-      'isMe': false,
-      'time': '10:10',
-      'avatar': 'https://i.pravatar.cc/150?u=casey'
-    },
-    {'text': 'Great, thanks for letting me know. I really look forward to advancements on this front.🎉', 'sender': 'You', 'isMe': true, 'time': '10:11'},
-    {
-      'text': 'Oh, they fixed it and I updated! I\'m secretly thrilled. ✨',
-      'sender': 'Janet',
-      'isMe': false,
-      'time': '10:12',
-      'avatar': 'https://i.pravatar.cc/150?u=janet'
-    },
-  ];
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final provider = Provider.of<GroupConversationProvider>(context, listen: false);
+    // Load more when reaching the top of the list (since it's reversed)
+    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent &&
+        provider.hasMore &&
+        !provider.isLoading) {
+      provider.fetchMessages(widget.groupId);
+    }
+  }
+
+  void _sendMessage() {
+    if (_messageController.text.trim().isEmpty) return;
+    final provider = Provider.of<GroupConversationProvider>(context, listen: false);
+    provider.sendMessage(widget.groupId, _messageController.text.trim());
+    _messageController.clear();
+  }
+
+  Widget _buildTimestamp(Map<String, dynamic> createdAt) {
+    final String date = createdAt['date'] ?? '';
+    final String time = createdAt['time'] ?? '';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        child: Text(
+          '$date $time', 
+          style: const TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,14 +90,14 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
         title: Row(
           children: [
             CircleAvatar(
-              backgroundImage: NetworkImage(widget.group['avatar']!),
+              backgroundImage: NetworkImage(widget.group['avatar'] ?? 'https://via.placeholder.com/150'),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.group['name']!, style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('${widget.group['members']} members', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(widget.group['name'] ?? 'Unknown Group', style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('${widget.group['members']?.length ?? 0} members', style: const TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ],
@@ -79,12 +125,55 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageItem(message);
+            child: Consumer<GroupConversationProvider>(
+               builder: (context, provider, child) {
+                if (provider.isLoading && provider.messages.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (provider.error != null && provider.messages.isEmpty) {
+                  return Center(child: Text(provider.error!));
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  reverse: true,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: provider.messages.length + (provider.hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                     if (index == provider.messages.length && provider.hasMore) {
+                      return const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()));
+                    }
+
+                    final currentMessage = provider.messages[index];
+                    bool showTimestampHeader = false;
+
+                    // Logic to show timestamp header
+                    if (index >= provider.messages.length - 1) {
+                      showTimestampHeader = true; // Always show for the oldest message
+                    } else {
+                      final previousMessage = provider.messages[index + 1];
+                      if (currentMessage['sender']?['id'] != previousMessage['sender']?['id']) {
+                        showTimestampHeader = true;
+                      } else {
+                        try {
+                          final time1 = DateTime.parse("${currentMessage['created_at']?['date']} ${currentMessage['created_at']?['time']}");
+                          final time2 = DateTime.parse("${previousMessage['created_at']?['date']} ${previousMessage['created_at']?['time']}");
+                          if (time1.difference(time2).inMinutes > 5) {
+                            showTimestampHeader = true;
+                          }
+                        } catch (e) {
+                          showTimestampHeader = true; // Fallback in case of parsing error
+                        }
+                      }
+                    }
+
+                    return Column(
+                      children: [
+                        if (showTimestampHeader) _buildTimestamp(currentMessage['created_at']),
+                        _buildMessageItem(currentMessage),
+                      ],
+                    );
+                  },
+                );
               },
             ),
           ),
@@ -95,17 +184,20 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
   }
 
   Widget _buildMessageItem(Map<String, dynamic> message) {
+    final isMe = message['isMe'] as bool? ?? false;
+    final sender = message['sender'] as Map<String, dynamic>? ?? {};
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: message['isMe'] ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!message['isMe'])
+          if (!isMe)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: CircleAvatar(
-                backgroundImage: NetworkImage(message['avatar']!),
+                backgroundImage: NetworkImage(sender['avatar'] ?? 'https://via.placeholder.com/150'),
                 radius: 15,
               ),
             ),
@@ -113,20 +205,25 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: message['isMe'] ? Colors.blue : Colors.grey.shade200,
+                color: isMe ? Colors.blue : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  if (!message['isMe'])
+                  if (!isMe)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Text(message['sender']!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+                      child: Text(sender['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
                     ),
                   Text(
-                    message['text'],
-                    style: TextStyle(color: message['isMe'] ? Colors.white : Colors.black),
+                    message['text'] ?? '',
+                    style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message['created_at']?['time'] ?? '',
+                    style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 10),
                   ),
                 ],
               ),
@@ -164,7 +261,7 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.send, color: Colors.blue),
-            onPressed: () {},
+            onPressed: _sendMessage,
           ),
         ],
       ),

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class GroupInformationScreen extends StatefulWidget {
@@ -47,7 +46,7 @@ class _GroupInformationScreenState extends State<GroupInformationScreen> {
                     children: [
                       CircleAvatar(
                         radius: 60,
-                        backgroundImage: NetworkImage(widget.group['avatar']!),
+                        backgroundImage: NetworkImage(widget.group['avatar'] ?? 'https://via.placeholder.com/150'), // FIX: Handle null avatar
                       ),
                       Container(
                         decoration: BoxDecoration(
@@ -67,13 +66,13 @@ class _GroupInformationScreenState extends State<GroupInformationScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        widget.group['name']!,
+                        widget.group['name'] ?? 'Unknown Group', // FIX: Handle null name
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                       IconButton(icon: const Icon(Icons.edit, size: 20, color: Colors.grey), onPressed: () {}),
                     ],
                   ),
-                  Text('${widget.group['members']} Members', style: const TextStyle(color: Colors.grey, fontSize: 16)),
+                  Text('${widget.group['members']?.length ?? 0} Members', style: const TextStyle(color: Colors.grey, fontSize: 16)), // FIX: Handle null members with ?.length
                   const SizedBox(height: 20),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
