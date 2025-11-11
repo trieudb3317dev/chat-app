@@ -20,14 +20,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Read Flutter version from .flutter-version (fallback to 3.10.6 if missing)
+      # Debug: show repo files and .flutter-version content to ensure we read correct file
+      - name: Debug - list repo and show .flutter-version
+        run: |
+          echo "pwd: $(pwd)"
+          ls -la
+          if [ -f .flutter-version ]; then
+            echo ".flutter-version content:"
+            cat .flutter-version
+          else
+            echo ".flutter-version not found"
+          fi
+
       - name: Read Flutter version
         id: flutter-version
         run: |
           if [ -f .flutter-version ]; then
-            echo "flutter_version=$(cat .flutter-version)" >> $GITHUB_OUTPUT
+            ver="$(cat .flutter-version | tr -d '\r\n')"
+            echo "Read version: $ver"
+            echo "flutter_version=$ver" >> $GITHUB_OUTPUT
           else
-            echo "flutter_version=3.10.6" >> $GITHUB_OUTPUT
+            echo "flutter_version=3.10.3" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up Flutter (use specific version to avoid channel resolution issues)
@@ -39,6 +52,10 @@ jobs:
 
       - name: Install Flutter dependencies
         run: flutter pub get
+
+      # Debug: verify installed flutter & dart versions
+      - name: Verify Flutter & Dart versions
+        run: flutter --version
 
       - name: Build release APK
         run: flutter build apk --release
