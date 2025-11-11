@@ -50,7 +50,9 @@ class __ConversationViewState extends State<_ConversationView> {
 
   void _onScroll() {
     final provider = Provider.of<ConversationProvider>(context, listen: false);
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent &&
+    // if user scrolled to top (minScrollExtent) load older messages
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels <= _scrollController.position.minScrollExtent + 20 &&
         provider.hasMore &&
         !provider.isLoading) {
       provider.fetchMessages(widget.userId);
@@ -135,6 +137,47 @@ class __ConversationViewState extends State<_ConversationView> {
     );
   }
 
+  DateTime _parseMessageTime(Map<String, dynamic> msg) {
+    // created_at already contains formatted date and time, e.g.:
+    // "created_at": { "date": "2025-11-08", "time": "20:59:07" }
+    final created = msg['created_at'];
+    if (created is Map) {
+      final dateStr = created['date'] as String?;
+      final timeStr = created['time'] as String?;
+      if (dateStr != null && timeStr != null) {
+        // combine into a full ISO-like string
+        final combined = '$dateStr ${timeStr.split('.').first}';
+        final dt = DateTime.tryParse(combined) ?? DateTime.tryParse(dateStr);
+        if (dt != null) return dt;
+      } else if (dateStr != null) {
+        final dt = DateTime.tryParse(dateStr);
+        if (dt != null) return dt;
+      }
+    }
+    // fallback
+    return DateTime.now();
+  }
+
+  String _formatTimeForMessage(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inDays >= 1) {
+      return '${dt.year.toString().padLeft(4,'0')}/${dt.month.toString().padLeft(2,'0')}/${dt.day.toString().padLeft(2,'0')}';
+    } else {
+      return '${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
+    }
+  }
+
+  String _dateHeaderLabel(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(dt.year, dt.month, dt.day);
+    final diffDays = today.difference(d).inDays;
+    if (diffDays == 0) return 'Today';
+    if (diffDays == 1) return 'Yesterday';
+    return '${d.year.toString().padLeft(4,'0')}/${d.month.toString().padLeft(2,'0')}/${d.day.toString().padLeft(2,'0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -196,42 +239,99 @@ class __ConversationViewState extends State<_ConversationView> {
                   return const Center(child: Text('No messages'));
                 }
                 
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true, // Show latest messages at the bottom
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.messages.length + (provider.hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == provider.messages.length && provider.hasMore) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final message = provider.messages[index];
-                    final isMe = message['isMe'] as bool? ?? false;
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isMe ? Colors.blue : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              message['text'] ?? '',
-                              style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                // Build grouped items (oldest -> newest), ListView will use reverse:true
+                final msgs = List<Map<String, dynamic>>.from(provider.messages);
+                msgs.sort((a, b) {
+                  final da = _parseMessageTime(a);
+                  final db = _parseMessageTime(b);
+                  return da.compareTo(db);
+                });
+
+                final List<Widget> items = [];
+                DateTime? lastDate;
+                for (final msg in msgs) {
+                  final dt = _parseMessageTime(msg);
+                  final dayOnly = DateTime(dt.year, dt.month, dt.day);
+                  if (lastDate == null || dayOnly.isAfter(lastDate)) {
+                    // insert header
+                    items.add(
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              message['created_at']?['time'] ?? '',
-                              style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 10),
-                            ),
-                          ],
+                            child: Text(_dateHeaderLabel(dt), style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                          ),
                         ),
                       ),
                     );
+                    lastDate = dayOnly;
+                  }
+
+                  final isMe = msg['isMe'] as bool? ?? false;
+                  // Row with optional avatar (receiver only) placed outside the message bubble
+                  items.add(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (!isMe) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: CircleAvatar(
+                                radius: 16,
+                                backgroundImage: NetworkImage(msg['avatar'] ?? 'https://via.placeholder.com/150'),
+                              ),
+                            ),
+                          ],
+                          Container(
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isMe ? Colors.blue : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg['text'] ?? '',
+                                  style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatTimeForMessage(dt),
+                                  style: TextStyle(color: isMe ? Colors.white70 : Colors.black54, fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                if (provider.hasMore) {
+                  items.insert(0, const Center(child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: CircularProgressIndicator(),
+                  )));
+                }
+  
+                return ListView.builder(
+                  controller: _scrollController,
+                  // do not reverse: keep items oldest -> newest so latest is at the bottom
+                  padding: const EdgeInsets.all(16),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    return items[index];
                   },
                 );
               },

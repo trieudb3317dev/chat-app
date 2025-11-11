@@ -103,9 +103,10 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         children: [
           // Remote user video (placeholder)
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               image: DecorationImage(
-                image: NetworkImage('https://i.pravatar.cc/500?u=remoteuser'), // Placeholder for remote user video
+                // image: NetworkImage('https://i.pravatar.cc/500?u=remoteuser'), // Placeholder for remote user video
+                image: NetworkImage(widget.user['avatar']!),
                 fit: BoxFit.cover,
               ),
             ),
@@ -120,7 +121,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 image: DecorationImage(
-                  image: NetworkImage(widget.user['avatar']!), // Placeholder for local user video
+                  image: NetworkImage(widget.user['avatarMe']!), // Placeholder for local user video
                   fit: BoxFit.cover,
                 ),
               ),

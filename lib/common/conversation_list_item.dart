@@ -5,10 +5,11 @@ class ConversationListItem extends StatelessWidget {
   final int id;
   final String name;
   final String lastMessage;
-  final String time;
+  final dynamic time; // changed from String to dynamic to accept DateTime or String
   final int unreadCount;
   final Widget avatar;
   final bool isMuted;
+  final bool isSender; // added field
   final VoidCallback onTap;
 
   const ConversationListItem({
@@ -20,12 +21,40 @@ class ConversationListItem extends StatelessWidget {
     this.unreadCount = 0,
     required this.avatar,
     this.isMuted = false,
+    this.isSender = false, // default false
     required this.onTap,
   }) : super(key: key);
+
+  String _formatTime(dynamic t) {
+    if (t == null) return '';
+    DateTime? dt;
+    if (t is DateTime) {
+      dt = t;
+    } else if (t is String) {
+      dt = DateTime.tryParse(t);
+      if (dt == null) {
+        // if it's already like "HH:mm" or other format, return as is
+        return t;
+      }
+    } else if (t is int) {
+      dt = DateTime.fromMillisecondsSinceEpoch(t);
+    } else {
+      return t.toString();
+    }
+
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inDays >= 1) {
+      return '${dt.year.toString().padLeft(4, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}';
+    } else {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final displayTime = _formatTime(time);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -63,14 +92,14 @@ class ConversationListItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  time,
+                  displayTime,
                   style: TextStyle(
                     color: isDark ? ColorConfig.neutral.neutral400 : ColorConfig.neutral.neutral500,
                     fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 4),
-                if (unreadCount > 0)
+                if (!isSender && unreadCount > 0) // show badge only for recipient
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(

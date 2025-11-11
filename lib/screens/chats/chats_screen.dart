@@ -196,6 +196,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       'time': friendship['time'] ?? 'Now', // Hardcoded
                       'unreadCount': friendship['unreadCount'] ?? 0, // Hardcoded
                       'avatar': friend['avatar'] ?? 'https://via.placeholder.com/150',
+                      'avatarMe': friendship['user']['avatar'] ?? 'https://via.placeholder.com/150',
                       'phone': friend['phone'] ?? 'N/A',
                     };
 
@@ -208,6 +209,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       avatar: CircleAvatar(
                         backgroundImage: NetworkImage(chat['avatar']),
                       ),
+                      isSender: friendship['isSender'] ?? false, // Pass isSender status
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => ConversationScreen(user: chat),
