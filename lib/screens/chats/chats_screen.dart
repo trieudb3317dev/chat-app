@@ -194,7 +194,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       'name': friend['name'] ?? 'Unknown',
                       'lastMessage': friendship['lastMessage'] ?? 'No messages yet', // Hardcoded
                       'time': friendship['time'] ?? 'Now', // Hardcoded
-                      'unreadCount': 0, // Hardcoded
+                      'unreadCount': friendship['unreadCount'] ?? 0, // Hardcoded
                       'avatar': friend['avatar'] ?? 'https://via.placeholder.com/150',
                       'phone': friend['phone'] ?? 'N/A',
                     };
