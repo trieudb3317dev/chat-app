@@ -20,10 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Set up Flutter (use specific version to avoid channel resolution issues)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          # Use a concrete Flutter version (replace if you want another stable release)
+          flutter-version: '3.10.6'
+          cache: true
 
       - name: Install Flutter dependencies
         run: flutter pub get
