@@ -20,11 +20,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Read Flutter version from .flutter-version (fallback to 3.10.6 if missing)
+      - name: Read Flutter version
+        id: flutter-version
+        run: |
+          if [ -f .flutter-version ]; then
+            echo "flutter_version=$(cat .flutter-version)" >> $GITHUB_OUTPUT
+          else
+            echo "flutter_version=3.10.6" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up Flutter (use specific version to avoid channel resolution issues)
         uses: subosito/flutter-action@v2
         with:
-          # Use a concrete Flutter version (replace if you want another stable release)
-          flutter-version: '3.10.6'
+          # Use version read from .flutter-version (or fallback)
+          flutter-version: ${{ steps.flutter-version.outputs.flutter_version }}
           cache: true
 
       - name: Install Flutter dependencies
