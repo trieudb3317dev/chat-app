@@ -36,10 +36,17 @@ jobs:
         id: flutter-version
         run: |
           if [ -f .flutter-version ]; then
-            ver="$(cat .flutter-version | tr -d '\r\n')"
-            echo "Read version: $ver"
-            echo "flutter_version=$ver" >> $GITHUB_OUTPUT
+            # extract first semantic version-like token (e.g. 3.10.3) and trim CRLF
+            ver="$(grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' .flutter-version | head -n1 | tr -d '\r\n')"
+            if [ -n "$ver" ]; then
+              echo "Read version: '$ver'"
+              echo "flutter_version=$ver" >> $GITHUB_OUTPUT
+            else
+              echo "No valid version found in .flutter-version, using fallback"
+              echo "flutter_version=3.10.3" >> $GITHUB_OUTPUT
+            fi
           else
+            echo ".flutter-version not found, using fallback"
             echo "flutter_version=3.10.3" >> $GITHUB_OUTPUT
           fi
 
